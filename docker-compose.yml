@@ -1,0 +1,52 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-offmarket}
+      POSTGRES_USER: ${POSTGRES_USER:-offmarket}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-offmarket}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-offmarket}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-offmarket}:${POSTGRES_PASSWORD:-offmarket}@db:5432/${POSTGRES_DB:-offmarket}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      PAPPERS_API_KEY: ${PAPPERS_API_KEY}
+      SERPAPI_KEY: ${SERPAPI_KEY:-}
+      SIRENE_DATA_DIR: /data/sirene
+    volumes:
+      - ./backend:/app
+      - sirene_data:/data/sirene
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    volumes:
+      - ./frontend/src:/app/src
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  sirene_data:
