@@ -85,3 +85,10 @@ def run_score(background_tasks: BackgroundTasks):
     from app.pipeline.scorer import score_companies
     background_tasks.add_task(score_companies)
     return {"message": "Scoring started"}
+
+
+@router.post("/run/all")
+def run_all(background_tasks: BackgroundTasks, download: bool = False):
+    from app.pipeline.run_all import run_all as _run_all
+    background_tasks.add_task(_run_all, download=download)
+    return {"message": "Full pipeline started"}

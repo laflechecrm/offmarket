@@ -1,8 +1,10 @@
 """
-Enrich companies with director information via the Pappers API.
+Enrich companies with director information via the free government API:
+https://api.annuaire-entreprises.data.gouv.fr
 
-Pappers API docs: https://api.pappers.fr/documentation
-Free tier: 3 req/s, limited monthly quota.
+No API key required. Rate-limit: ~2 req/s (be polite).
+
+Also retrieves website URL when available.
 
 Usage:
     python -m app.pipeline.directors [--batch N] [--siren SIREN]
@@ -21,35 +23,20 @@ from app.config import settings
 from app.database import SessionLocal, init_db
 from app.models import Company
 
-PAPPERS_BASE = "https://api.pappers.fr/v2"
+BASE_URL = "https://api.annuaire-entreprises.data.gouv.fr"
+HEADERS = {"User-Agent": "offmarket-sourcing/1.0 (open-source research tool)"}
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-def _fetch_pappers(siren: str, client: httpx.Client) -> dict | None:
-    r = client.get(
-        f"{PAPPERS_BASE}/entreprise",
-        params={"siren": siren, "api_token": settings.pappers_api_key},
-        timeout=15,
-    )
+def _fetch_entreprise(siren: str, client: httpx.Client) -> dict | None:
+    r = client.get(f"{BASE_URL}/entreprise/{siren}", timeout=15)
     if r.status_code == 404:
         return None
     if r.status_code == 429:
-        time.sleep(5)
+        time.sleep(10)
         r.raise_for_status()
     r.raise_for_status()
     return r.json()
-
-
-def _parse_birth_year(date_str: str | None) -> int | None:
-    """Parse '01/1965' or '1965-01-01' → 1965."""
-    if not date_str:
-        return None
-    for sep in ("/", "-"):
-        parts = date_str.split(sep)
-        for part in reversed(parts):
-            if len(part) == 4 and part.isdigit():
-                return int(part)
-    return None
 
 
 def _parse_date(date_str: str | None) -> date | None:
@@ -63,25 +50,15 @@ def _parse_date(date_str: str | None) -> date | None:
     return None
 
 
-def _has_holding(data: dict) -> bool:
-    """Heuristic: check if a holding/parent company owns this entity."""
-    for b in data.get("beneficiaires_effectifs", []):
-        if b.get("type_de_personne") == "PERSONNE_MORALE":
-            return True
-    for link in data.get("entreprises_liees", []):
-        if link.get("type_lien") in ("FILIALE", "PARTICIPATION"):
-            return True
-    return False
+def _has_holding(dirigeants: list[dict]) -> bool:
+    """A personne_morale acting as director usually means a holding structure."""
+    return any(d.get("type_dirigeant") == "personne_morale" for d in dirigeants)
 
 
 def enrich_directors(batch_size: int = 500, siren_filter: str | None = None) -> None:
-    if not settings.pappers_api_key:
-        print("PAPPERS_API_KEY not set — skipping director enrichment")
-        return
-
     init_db()
     db = SessionLocal()
-    min_delay = 1.0 / settings.pappers_rps
+    min_delay = 1.0 / settings.annuaire_rps
 
     try:
         q = select(Company).where(Company.director_enriched_at.is_(None))
@@ -90,13 +67,13 @@ def enrich_directors(batch_size: int = 500, siren_filter: str | None = None) -> 
         q = q.limit(batch_size)
         companies = db.scalars(q).all()
 
-        print(f"Enriching {len(companies)} companies with Pappers…")
+        print(f"Enriching {len(companies)} companies via Annuaire des Entreprises…")
 
-        with httpx.Client() as client:
+        with httpx.Client(headers=HEADERS) as client:
             for company in tqdm(companies):
                 t0 = time.monotonic()
                 try:
-                    data = _fetch_pappers(company.siren, client)
+                    data = _fetch_entreprise(company.siren, client)
                 except Exception as e:
                     print(f"  Error {company.siren}: {e}")
                     data = None
@@ -104,38 +81,49 @@ def enrich_directors(batch_size: int = 500, siren_filter: str | None = None) -> 
                 now = datetime.now(timezone.utc).replace(tzinfo=None)
 
                 if data:
-                    company.website = (
-                        company.website or data.get("site_internet") or None
-                    )
+                    # Website (free from annuaire)
+                    if not company.website:
+                        company.website = data.get("site_internet") or None
 
-                    representants = data.get("representants", [])
-                    # Find primary director: Président, Gérant, DG
+                    dirigeants = data.get("dirigeants") or []
+
+                    # Pick primary: Président > Gérant > DG > first
                     primary = None
-                    for priority in ("Président", "Gérant", "Directeur général", "PDG"):
+                    for priority in ("président", "gérant", "directeur général", "pdg"):
                         primary = next(
-                            (r for r in representants if priority.lower() in r.get("qualite", "").lower()),
+                            (
+                                d for d in dirigeants
+                                if priority in (d.get("qualite") or "").lower()
+                                and d.get("type_dirigeant") != "personne_morale"
+                            ),
                             None,
                         )
                         if primary:
                             break
-                    if primary is None and representants:
-                        primary = representants[0]
-
-                    if primary:
-                        company.director_name = " ".join(filter(None, [
-                            primary.get("prenom", ""),
-                            primary.get("nom", ""),
-                        ])).strip() or None
-                        birth_year = _parse_birth_year(primary.get("date_de_naissance"))
-                        company.director_birth_year = birth_year
-                        if birth_year:
-                            company.director_age = datetime.now().year - birth_year
-                        company.director_appointment_date = _parse_date(
-                            primary.get("date_de_prise_de_poste")
+                    if primary is None:
+                        # First physical person
+                        primary = next(
+                            (d for d in dirigeants if d.get("type_dirigeant") != "personne_morale"),
+                            None,
                         )
 
-                    company.director_count = len(representants)
-                    company.has_holding = _has_holding(data)
+                    if primary:
+                        nom = primary.get("nom", "")
+                        prenom = primary.get("prenoms") or primary.get("prenom", "")
+                        company.director_name = f"{prenom} {nom}".strip() or None
+
+                        birth_year_str = primary.get("annee_de_naissance", "")
+                        if birth_year_str and str(birth_year_str).isdigit():
+                            birth_year = int(birth_year_str)
+                            company.director_birth_year = birth_year
+                            company.director_age = datetime.now().year - birth_year
+
+                        company.director_appointment_date = _parse_date(
+                            primary.get("date_prise_de_poste")
+                        )
+
+                    company.director_count = len(dirigeants)
+                    company.has_holding = _has_holding(dirigeants)
 
                 company.director_enriched_at = now
                 db.commit()

@@ -45,5 +45,6 @@ export const api = {
     runSummarize: () => apiFetch("/api/pipeline/run/summarize", { method: "POST" }),
     runEmbed: () => apiFetch("/api/pipeline/run/embed", { method: "POST" }),
     runScore: () => apiFetch("/api/pipeline/run/score", { method: "POST" }),
+    runAll: () => apiFetch("/api/pipeline/run/all", { method: "POST" }),
   },
 };
