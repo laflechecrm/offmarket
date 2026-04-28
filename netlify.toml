@@ -6,6 +6,9 @@
 [build.environment]
   NODE_VERSION = "22"
 
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
 # Variables d'environnement à configurer dans Netlify Dashboard :
 # DATABASE_URL      → connexion Neon (postgresql://...@...neon.tech/offmarket?sslmode=require)
 # ANTHROPIC_API_KEY → Claude API
