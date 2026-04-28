@@ -1,6 +1,8 @@
 import type { Company, CompanyList, Filters, PipelineStatus, SimilarResult } from "@/types/company";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// On Netlify the API routes live in the same Next.js app — use relative paths.
+// In local Docker dev, NEXT_PUBLIC_API_URL points to the FastAPI container.
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {

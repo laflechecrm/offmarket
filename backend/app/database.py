@@ -3,7 +3,12 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from app.config import settings
 
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+# Neon and other hosted Postgres require SSL; local Docker does not.
+connect_args = {}
+if "neon.tech" in settings.database_url:
+    connect_args = {"sslmode": "require"}
+
+engine = create_engine(settings.database_url, pool_pre_ping=True, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

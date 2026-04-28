@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { PipelineStatus } from "@/types/company";
 
+// Pipeline triggers are only available when running against the local FastAPI backend.
+// On Netlify (no NEXT_PUBLIC_API_URL set), only the status read-only view is shown.
+const HAS_BACKEND = Boolean(process.env.NEXT_PUBLIC_API_URL);
+
 export default function PipelinePanel() {
   const [status, setStatus] = useState<PipelineStatus | null>(null);
   const [open, setOpen] = useState(false);
@@ -96,25 +100,27 @@ export default function PipelinePanel() {
 
       {/* Actions */}
       <div className="p-4 border-t border-gray-100 space-y-2">
-        {/* Run all — primary action */}
-        <button
-          onClick={() => run("Pipeline complet", api.pipeline.runAll)}
-          disabled={loading !== null}
-          className="w-full py-2 bg-blue-600 text-white text-sm rounded-lg font-medium hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading === "Pipeline complet" ? "En cours…" : "Lancer le pipeline complet"}
-        </button>
+        {HAS_BACKEND ? (
+          <>
+            {/* Run all — primary action */}
+            <button
+              onClick={() => run("Pipeline complet", api.pipeline.runAll)}
+              disabled={loading !== null}
+              className="w-full py-2 bg-blue-600 text-white text-sm rounded-lg font-medium hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading === "Pipeline complet" ? "En cours…" : "Lancer le pipeline complet"}
+            </button>
 
-        {/* Individual steps */}
-        <div className="grid grid-cols-2 gap-1.5">
-          {[
-            { label: "Dirigeants", fn: api.pipeline.runDirectors },
-            { label: "Sites web", fn: api.pipeline.runWebsites },
-            { label: "Scraping", fn: api.pipeline.runScrape },
-            { label: "Résumés IA", fn: api.pipeline.runSummarize },
-            { label: "Embeddings", fn: api.pipeline.runEmbed },
-            { label: "Scores", fn: api.pipeline.runScore },
-          ].map(({ label, fn }) => (
+            {/* Individual steps */}
+            <div className="grid grid-cols-2 gap-1.5">
+              {[
+                { label: "Dirigeants", fn: api.pipeline.runDirectors },
+                { label: "Sites web", fn: api.pipeline.runWebsites },
+                { label: "Scraping", fn: api.pipeline.runScrape },
+                { label: "Résumés IA", fn: api.pipeline.runSummarize },
+                { label: "Embeddings", fn: api.pipeline.runEmbed },
+                { label: "Scores", fn: api.pipeline.runScore },
+              ].map(({ label, fn }) => (
             <button
               key={label}
               onClick={() => run(label, fn)}
@@ -124,15 +130,21 @@ export default function PipelinePanel() {
               {loading === label ? "…" : label}
             </button>
           ))}
-        </div>
+            </div>
 
-        {message && (
-          <p className="text-xs text-gray-500 mt-1 text-center">{message}</p>
+            {message && (
+              <p className="text-xs text-gray-500 mt-1 text-center">{message}</p>
+            )}
+          </>
+        ) : (
+          <p className="text-xs text-gray-400 text-center">
+            Pipeline géré via <code>make pipeline</code> en local.
+          </p>
         )}
 
         <button
           onClick={refresh}
-          className="w-full text-center text-xs text-gray-400 hover:text-gray-600"
+          className="w-full text-center text-xs text-gray-400 hover:text-gray-600 mt-1"
         >
           Actualiser (auto toutes les 15s)
         </button>
