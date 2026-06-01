@@ -1,24 +1,18 @@
 """
-Compute cession probability score (0–100) for each company.
+Compute acquisition score (0–100) for each company.
 
-Scoring model:
-  - Dirigeant > 58 ans      → +40 pts
-  - Dirigeant 55-57 ans     → +20 pts
-  - Dirigeant unique        → +15 pts
-  - Entreprise > 20 ans     → +15 pts  (en plus des 10 ans requis)
-  - Entreprise > 15 ans     → +10 pts
-  - Pas de holding          → +15 pts
-  - Dirigeant en poste > 10 ans → +10 pts
-  - A un site web           → +5 pts   (meilleure visibilité = vérifiable)
-
-Score final normalisé sur 100.
+Scoring model (investisseur-opérateur, 4 axes):
+  Potentiel digital       (40 pts): gap numérique = levier de création de valeur
+  Qualité business        (30 pts): produit physique B2B, achats récurrents
+  Transmissibilité        (20 pts): dirigeant proche de la retraite, succession claire
+  Complexité opérationnelle (10 pts): peu de salariés, secteur non réglementé
 
 Usage:
     python -m app.pipeline.scorer [--batch N]
 """
 
 import argparse
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from tqdm import tqdm
@@ -26,51 +20,100 @@ from tqdm import tqdm
 from app.database import SessionLocal, init_db
 from app.models import Company
 
-MAX_SCORE = 100.0
-_TODAY = date.today()
+# NAF prefixes for B2B physical-product businesses
+_PHYSICAL_B2B_PREFIXES = (
+    "20", "21", "22", "23", "24", "25", "26", "27", "28", "29",
+    "30", "31", "32", "33",   # manufacturing
+    "46",                      # wholesale B2B trade
+    "49", "50", "51", "52",   # transport & logistics
+    "38", "39",               # waste management / industrial services
+)
+
+# NAF prefixes for regulated sectors (lower complexity score)
+_REGULATED_PREFIXES = ("64", "65", "66", "69", "70", "71", "75", "86", "87", "88")
 
 
-def compute_score(company: Company) -> float:
-    score = 0.0
+def compute_score(company: Company) -> tuple[float, float, float, float, float]:
+    """Return (total, digital, business, transmission, complexity)."""
 
-    # Age dirigeant
-    age = company.director_age
-    if age is not None:
-        if age >= 58:
-            score += 40
-        elif age >= 55:
-            score += 20
-        elif age >= 50:
-            score += 10
+    # ── POTENTIEL DIGITAL (0–40 pts) ─────────────────────────────────────────
+    digital = 0.0
 
-    # Dirigeant unique
-    if company.director_count == 1:
-        score += 15
+    # No web presence → maximum digital gap opportunity
+    if not company.website:
+        digital += 20
 
-    # Ancienneté entreprise
-    age_co = company.company_age_years or 0
-    if age_co >= 20:
-        score += 15
-    elif age_co >= 15:
-        score += 10
+    # Micro-company: likely no CRM / automation
+    emp_max = company.employee_max
+    emp_min = company.employee_min
+    if (emp_max is not None and emp_max <= 5) or (emp_min == 0 and emp_max == 0):
+        digital += 10
 
-    # Pas de holding
-    if not company.has_holding:
-        score += 15
+    # Founded pre-digital era (≥20 years) → no tech overhaul likely
+    age = company.company_age_years or 0
+    if age >= 20:
+        digital += 10
+    elif age >= 15:
+        digital += 5
 
-    # Ancienneté du dirigeant au poste
-    if company.director_appointment_date:
-        years_in_post = (_TODAY - company.director_appointment_date).days // 365
-        if years_in_post >= 10:
-            score += 10
-        elif years_in_post >= 5:
-            score += 5
+    digital = min(digital, 40.0)
 
-    # Site web disponible (vérifiabilité)
-    if company.website:
-        score += 5
+    # ── QUALITÉ BUSINESS (0–30 pts) ──────────────────────────────────────────
+    business = 0.0
+    naf = company.naf_code or ""
 
-    return min(score, MAX_SCORE)
+    # Physical product or B2B distribution sector
+    if any(naf.startswith(p) for p in _PHYSICAL_B2B_PREFIXES):
+        business += 12
+
+    # Wholesale trade (46xx): recurring B2B customer relationships
+    if naf.startswith("46"):
+        business += 10
+
+    # Established business → loyal customer base, recurring orders
+    if age >= 15:
+        business += 8
+
+    business = min(business, 30.0)
+
+    # ── TRANSMISSIBILITÉ (0–20 pts) ───────────────────────────────────────────
+    transmission = 0.0
+
+    director_age = company.director_age
+    if director_age is not None:
+        if director_age >= 58:
+            transmission += 10
+        elif director_age >= 55:
+            transmission += 7
+        elif director_age >= 50:
+            transmission += 3
+
+    # Single director + no holding → clean succession
+    sole = company.director_count == 1
+    no_holding = not company.has_holding
+    if sole and no_holding:
+        transmission += 10
+    elif sole or no_holding:
+        transmission += 5
+
+    transmission = min(transmission, 20.0)
+
+    # ── COMPLEXITÉ OPÉRATIONNELLE (0–10 pts) ──────────────────────────────────
+    complexity = 0.0
+
+    if emp_max is not None and emp_max <= 5:
+        complexity += 5
+    elif emp_max is not None and emp_max <= 10:
+        complexity += 3
+
+    # Non-regulated sector → no special licence required
+    if not any(naf.startswith(p) for p in _REGULATED_PREFIXES):
+        complexity += 5
+
+    complexity = min(complexity, 10.0)
+
+    total = min(digital + business + transmission + complexity, 100.0)
+    return total, digital, business, transmission, complexity
 
 
 def score_companies(batch_size: int = 5000) -> None:
@@ -89,7 +132,12 @@ def score_companies(batch_size: int = 5000) -> None:
         now = datetime.now(timezone.utc).replace(tzinfo=None)
 
         for company in tqdm(companies):
-            company.cession_score = compute_score(company)
+            total, dig, biz, trans, cpx = compute_score(company)
+            company.cession_score = total
+            company.digital_score = dig
+            company.business_score = biz
+            company.transmission_score = trans
+            company.complexity_score = cpx
             company.scored_at = now
 
         db.commit()

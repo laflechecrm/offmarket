@@ -214,11 +214,19 @@ def import_sirene(limit: int | None = None) -> int:
             if not any(legal_code.startswith(p) for p in COMMERCIAL_PREFIXES):
                 continue
 
-            # Effectifs 3-50
+            # Effectifs 0-10 (y compris dirigeant seul et non renseigné)
             tranche = row.get("trancheEffectifsUniteLegale", "")
-            emp_range = EMPLOYEE_RANGES.get(tranche)
-            if not emp_range or emp_range[0] < 3 or emp_range[0] > 50:
-                continue
+            if tranche == "NN":
+                # Non renseigné → inclure comme dirigeant seul
+                emp_min, emp_max = 0, 0
+            else:
+                emp_range = EMPLOYEE_RANGES.get(tranche)
+                if not emp_range:
+                    continue
+                emp_min, emp_max = emp_range
+                # Garder 0–10 salariés (tranches 00 à 11)
+                if emp_min > 10:
+                    continue
 
             # Age > 10 ans
             creation_str = row.get("dateCreationUniteLegale", "")
@@ -256,8 +264,8 @@ def import_sirene(limit: int | None = None) -> int:
                 "name": name[:500] if name else None,
                 "naf_code": row.get("activitePrincipaleUniteLegale"),
                 "employee_range": tranche,
-                "employee_min": emp_range[0],
-                "employee_max": emp_range[1],
+                "employee_min": emp_min,
+                "employee_max": emp_max,
                 "creation_date": creation,
                 "company_age_years": age_years,
                 "address": street or None,

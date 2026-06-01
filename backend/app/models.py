@@ -61,8 +61,15 @@ class Company(Base):
     # Similarité sémantique
     embedding: Mapped[list | None] = mapped_column(Vector(settings.embedding_dim))
 
-    # Score cession
+    # Score global + sous-scores (modèle investisseur-opérateur)
     cession_score: Mapped[float | None] = mapped_column(Float, index=True)
+    digital_score: Mapped[float | None] = mapped_column(Float)
+    business_score: Mapped[float | None] = mapped_column(Float)
+    transmission_score: Mapped[float | None] = mapped_column(Float)
+    complexity_score: Mapped[float | None] = mapped_column(Float)
+
+    # CRM pipeline
+    pipeline_stage: Mapped[str | None] = mapped_column(String(50), index=True)
 
     # Pipeline state timestamps
     director_enriched_at: Mapped[datetime | None] = mapped_column(DateTime)

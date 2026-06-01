@@ -1,6 +1,8 @@
 "use client";
 
+import React from "react";
 import type { Company } from "@/types/company";
+import { PIPELINE_STAGES } from "@/types/company";
 
 interface Props {
   companies: Company[];
@@ -9,6 +11,7 @@ interface Props {
   pageSize: number;
   onPageChange: (p: number) => void;
   onSelectSiren: (siren: string) => void;
+  onStageChange: (siren: string, stage: string | null) => Promise<void>;
 }
 
 function ScoreBadge({ score }: { score: number | null }) {
@@ -28,10 +31,56 @@ function ScoreBadge({ score }: { score: number | null }) {
   );
 }
 
+function ScoreBreakdown({ company }: { company: Company }) {
+  if (company.digital_score == null) return null;
+  return (
+    <div className="flex gap-1 mt-1 flex-wrap">
+      {[
+        { label: "D", value: company.digital_score, max: 40, title: "Digital" },
+        { label: "B", value: company.business_score, max: 30, title: "Business" },
+        { label: "T", value: company.transmission_score, max: 20, title: "Transmissibilité" },
+        { label: "C", value: company.complexity_score, max: 10, title: "Complexité" },
+      ].map(({ label, value, max, title }) => (
+        <span
+          key={label}
+          title={`${title}: ${value ?? 0}/${max}`}
+          className="text-xs text-gray-400 font-mono"
+        >
+          {label}:{(value ?? 0).toFixed(0)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function AgeCell({ age }: { age: number | null }) {
   if (age == null) return <span className="text-gray-300 text-xs">—</span>;
   const color = age >= 58 ? "text-red-600 font-semibold" : age >= 55 ? "text-orange-600" : "";
   return <span className={color}>{age} ans</span>;
+}
+
+function StageSelect({
+  siren,
+  stage,
+  onChange,
+}: {
+  siren: string;
+  stage: string | null;
+  onChange: (siren: string, stage: string | null) => Promise<void>;
+}) {
+  return (
+    <select
+      value={stage ?? ""}
+      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onChange(siren, e.target.value || null)}
+      onClick={(e: React.MouseEvent) => e.stopPropagation()}
+      className="text-xs border border-gray-200 rounded-md px-1.5 py-1 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 max-w-[130px]"
+    >
+      <option value="">— Étape —</option>
+      {PIPELINE_STAGES.map((s) => (
+        <option key={s} value={s}>{s}</option>
+      ))}
+    </select>
+  );
 }
 
 export default function CompanyTable({
@@ -41,6 +90,7 @@ export default function CompanyTable({
   pageSize,
   onPageChange,
   onSelectSiren,
+  onStageChange,
 }: Props) {
   const totalPages = Math.ceil(total / pageSize);
 
@@ -54,23 +104,20 @@ export default function CompanyTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap">
-                Entreprise
-              </th>
+              <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap">Entreprise</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Effectifs</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Age dirig.</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Localisation</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600 max-w-xs">
-                Activité réelle
-              </th>
+              <th className="text-left px-4 py-3 font-medium text-gray-600 max-w-xs">Activité réelle</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Score</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-600">Pipeline</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {companies.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-gray-400">
+                <td colSpan={8} className="text-center py-12 text-gray-400">
                   Aucune entreprise correspondante
                 </td>
               </tr>
@@ -125,6 +172,14 @@ export default function CompanyTable({
                 </td>
                 <td className="px-4 py-3">
                   <ScoreBadge score={c.cession_score} />
+                  <ScoreBreakdown company={c} />
+                </td>
+                <td className="px-4 py-3">
+                  <StageSelect
+                    siren={c.siren}
+                    stage={c.pipeline_stage}
+                    onChange={onStageChange}
+                  />
                 </td>
                 <td className="px-4 py-3">
                   <button
@@ -141,7 +196,6 @@ export default function CompanyTable({
         </table>
       </div>
 
-      {/* Pagination */}
       <div className="flex items-center justify-between text-sm text-gray-500">
         <span>
           Page {page} / {totalPages || 1}

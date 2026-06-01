@@ -1,7 +1,5 @@
 import type { Company, CompanyList, Filters, PipelineStatus, SimilarResult } from "@/types/company";
 
-// On Netlify the API routes live in the same Next.js app — use relative paths.
-// In local Docker dev, NEXT_PUBLIC_API_URL points to the FastAPI container.
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -24,6 +22,12 @@ export function buildQuery(filters: Partial<Filters>, page: number, pageSize = 5
   if (filters.keyword) p.set("keyword", filters.keyword);
   if (filters.has_website) p.set("has_website", "true");
   if (filters.has_summary) p.set("has_summary", "true");
+  if (filters.crit_digital_gap) p.set("crit_digital_gap", "true");
+  if (filters.crit_physical_b2b) p.set("crit_physical_b2b", "true");
+  if (filters.crit_retiring) p.set("crit_retiring", "true");
+  if (filters.crit_small) p.set("crit_small", "true");
+  if (filters.crit_no_holding) p.set("crit_no_holding", "true");
+  if (filters.pipeline_stage) p.set("pipeline_stage", filters.pipeline_stage);
   return p.toString();
 }
 
@@ -38,6 +42,11 @@ export const api = {
         method: "POST",
         body: JSON.stringify(body),
       }),
+    setStage: (siren: string, stage: string | null) =>
+      apiFetch<{ ok: boolean }>(`/api/companies/${siren}/stage`, {
+        method: "PATCH",
+        body: JSON.stringify({ stage }),
+      }),
   },
   pipeline: {
     status: () => apiFetch<PipelineStatus>("/api/pipeline/status"),
@@ -48,5 +57,8 @@ export const api = {
     runEmbed: () => apiFetch("/api/pipeline/run/embed", { method: "POST" }),
     runScore: () => apiFetch("/api/pipeline/run/score", { method: "POST" }),
     runAll: () => apiFetch("/api/pipeline/run/all", { method: "POST" }),
+  },
+  admin: {
+    initDb: () => apiFetch<{ ok: boolean; message: string; companies: number }>("/api/admin/init-db", { method: "POST" }),
   },
 };

@@ -15,15 +15,10 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [total, setTotal] = useState(0);
-  const [regions, setRegions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [similarSiren, setSimilarSiren] = useState<string | undefined>();
   const [showSimilar, setShowSimilar] = useState(false);
   const [showFreeSearch, setShowFreeSearch] = useState(false);
-
-  useEffect(() => {
-    api.companies.regions().then(setRegions).catch(() => {});
-  }, []);
 
   const fetchCompanies = useCallback(async () => {
     setLoading(true);
@@ -53,15 +48,21 @@ export default function Home() {
     setShowSimilar(true);
   }
 
+  async function handleStageChange(siren: string, stage: string | null) {
+    await api.companies.setStage(siren, stage);
+    setCompanies((prev: Company[]) =>
+      prev.map((c) => (c.siren === siren ? { ...c, pipeline_stage: stage } : c))
+    );
+  }
+
   return (
     <main className="min-h-screen">
-      {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-screen-2xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Offmarket Sourcing</h1>
             <p className="text-sm text-gray-400">
-              Identification d'entreprises B2B à reprendre off-market en France
+              Identification d&apos;entreprises B2B à reprendre off-market en France
             </p>
           </div>
           <button
@@ -77,11 +78,9 @@ export default function Home() {
       </header>
 
       <div className="max-w-screen-2xl mx-auto px-6 py-6 flex gap-6">
-        {/* Filters sidebar */}
         <aside className="w-64 shrink-0">
           <FiltersPanel
             filters={filters}
-            regions={regions}
             onChange={handleFilterChange}
             onReset={() => {
               setFilters(DEFAULT_FILTERS);
@@ -90,7 +89,6 @@ export default function Home() {
           />
         </aside>
 
-        {/* Main content */}
         <div className="flex-1 min-w-0">
           {loading && (
             <div className="text-sm text-gray-400 mb-3 animate-pulse">Chargement…</div>
@@ -102,11 +100,11 @@ export default function Home() {
             pageSize={PAGE_SIZE}
             onPageChange={setPage}
             onSelectSiren={openSimilarForSiren}
+            onStageChange={handleStageChange}
           />
         </div>
       </div>
 
-      {/* Similar search modal */}
       {(showSimilar || showFreeSearch) && (
         <SimilarSearch
           anchorSiren={showSimilar ? similarSiren : undefined}
@@ -118,7 +116,6 @@ export default function Home() {
         />
       )}
 
-      {/* Pipeline management panel */}
       <PipelinePanel />
     </main>
   );

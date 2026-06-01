@@ -7,7 +7,6 @@ export async function POST(req: NextRequest) {
 
   try {
     if (body.siren) {
-      // Vector similarity via pgvector — use pre-computed embedding
       const { rows } = await pool.query(
         `SELECT c.*,
                 1 - (c.embedding <=> anchor.embedding) AS similarity
@@ -22,21 +21,20 @@ export async function POST(req: NextRequest) {
 
       if (!rows.length) {
         return NextResponse.json(
-          { error: "Company not found or not yet embedded" },
+          { error: "Entreprise introuvable ou pas encore vectorisée. Lancez le pipeline d'embeddings depuis le panneau d'administration." },
           { status: 404 }
         );
       }
 
       return NextResponse.json(
-        rows.map(({ similarity, ...company }) => ({
+        rows.map(({ similarity, ...company }: Record<string, unknown>) => ({
           company,
-          similarity: parseFloat(similarity),
+          similarity: parseFloat(similarity as string),
         }))
       );
     }
 
     if (body.text) {
-      // Text-based: full-text search fallback (no embedding API needed on Netlify)
       const { rows } = await pool.query(
         `SELECT *,
                 ts_rank(
@@ -54,16 +52,31 @@ export async function POST(req: NextRequest) {
       );
 
       return NextResponse.json(
-        rows.map(({ similarity, ...company }) => ({
+        rows.map(({ similarity, ...company }: Record<string, unknown>) => ({
           company,
-          similarity: Math.min(1, parseFloat(similarity ?? "0") + 0.5),
+          similarity: Math.min(1, parseFloat((similarity as string) ?? "0") + 0.5),
         }))
       );
     }
 
-    return NextResponse.json({ error: "Provide siren or text" }, { status: 400 });
-  } catch (err) {
+    return NextResponse.json({ error: "Fournir siren ou text" }, { status: 400 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+
+    if (msg.includes("vector") || msg.includes("operator does not exist")) {
+      return NextResponse.json(
+        { error: "Extension pgvector non activée sur cette base. Allez dans /api/admin/init-db pour initialiser." },
+        { status: 503 }
+      );
+    }
+    if (msg.includes("does not exist") || msg.includes("relation")) {
+      return NextResponse.json(
+        { error: "Table companies introuvable. Initialisez la base via POST /api/admin/init-db." },
+        { status: 503 }
+      );
+    }
+
     console.error(err);
-    return NextResponse.json({ error: "Database error" }, { status: 500 });
+    return NextResponse.json({ error: "Erreur base de données" }, { status: 500 });
   }
 }
