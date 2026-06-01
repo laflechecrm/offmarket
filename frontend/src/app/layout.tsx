@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Nav from "@/components/Nav";
 
 export const metadata: Metadata = {
-  title: "Offmarket Sourcing",
-  description: "Identification d'entreprises à reprendre off-market en France",
+  title: "Acquisition Finder",
+  description: "CRM de sourcing de reprises d'entreprises B2B en France",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body>{children}</body>
+      <body className="bg-gray-50 min-h-screen">
+        <Nav />
+        <div className="pt-14">{children}</div>
+      </body>
     </html>
   );
 }

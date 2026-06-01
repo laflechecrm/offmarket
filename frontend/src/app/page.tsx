@@ -57,27 +57,22 @@ export default function Home() {
 
   return (
     <main className="min-h-screen">
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-screen-2xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Offmarket Sourcing</h1>
-            <p className="text-sm text-gray-400">
-              Identification d&apos;entreprises B2B à reprendre off-market en France
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setSimilarSiren(undefined);
-              setShowFreeSearch(true);
-            }}
-            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Recherche par similarité
-          </button>
-        </div>
-      </header>
+      <div className="max-w-screen-2xl mx-auto px-6 pt-4 pb-2 flex items-center justify-between">
+        <p className="text-sm text-gray-400">
+          Identification d&apos;entreprises B2B à reprendre off-market en France
+        </p>
+        <button
+          onClick={() => {
+            setSimilarSiren(undefined);
+            setShowFreeSearch(true);
+          }}
+          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Recherche par similarité
+        </button>
+      </div>
 
-      <div className="max-w-screen-2xl mx-auto px-6 py-6 flex gap-6">
+      <div className="max-w-screen-2xl mx-auto px-6 py-4 flex gap-6">
         <aside className="w-64 shrink-0">
           <FiltersPanel
             filters={filters}

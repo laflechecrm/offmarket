@@ -14,14 +14,40 @@ export async function PATCH(
     return NextResponse.json({ error: "Étape invalide" }, { status: 400 });
   }
 
+  const client = await pool.connect();
   try {
-    await pool.query(
-      "UPDATE companies SET pipeline_stage = $1, updated_at = NOW() WHERE siren = $2",
-      [stage, siren]
+    await client.query("BEGIN");
+
+    const { rows } = await client.query(
+      "SELECT id, pipeline_stage FROM companies WHERE siren = $1 LIMIT 1",
+      [siren]
     );
+    if (!rows.length) {
+      await client.query("ROLLBACK");
+      return NextResponse.json({ error: "Company not found" }, { status: 404 });
+    }
+
+    const { id, pipeline_stage: fromStage } = rows[0] as { id: number; pipeline_stage: string | null };
+
+    await client.query(
+      "UPDATE companies SET pipeline_stage = $1, pipeline_moved_at = NOW(), updated_at = NOW() WHERE id = $2",
+      [stage, id]
+    );
+
+    if (fromStage !== stage) {
+      await client.query(
+        "INSERT INTO pipeline_history (company_id, from_stage, to_stage) VALUES ($1, $2, $3)",
+        [id, fromStage, stage]
+      );
+    }
+
+    await client.query("COMMIT");
     return NextResponse.json({ ok: true });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error(err);
     return NextResponse.json({ error: "Database error" }, { status: 500 });
+  } finally {
+    client.release();
   }
 }

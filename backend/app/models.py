@@ -54,9 +54,25 @@ class Company(Base):
     website: Mapped[str | None] = mapped_column(String(500))
     homepage_text: Mapped[str | None] = mapped_column(Text)
 
-    # Activité réelle (LLM)
+    # Contact
+    phone: Mapped[str | None] = mapped_column(String(50))
+    email: Mapped[str | None] = mapped_column(String(200))
+    linkedin_url: Mapped[str | None] = mapped_column(String(500))
+
+    # Financier (estimé)
+    revenue_min: Mapped[int | None] = mapped_column(Integer)   # en €
+    revenue_max: Mapped[int | None] = mapped_column(Integer)
+
+    # Source du lead
+    source: Mapped[str | None] = mapped_column(String(50))     # 'sirene','manual','fusacq',...
+    source_url: Mapped[str | None] = mapped_column(String(1000))
+
+    # Analyse IA
     activity_summary: Mapped[str | None] = mapped_column(Text)
     real_sector: Mapped[str | None] = mapped_column(String(300), index=True)
+    digital_opportunity_summary: Mapped[str | None] = mapped_column(Text)
+    risks_summary: Mapped[str | None] = mapped_column(Text)
+    growth_potential_summary: Mapped[str | None] = mapped_column(Text)
 
     # Similarité sémantique
     embedding: Mapped[list | None] = mapped_column(Vector(settings.embedding_dim))
@@ -67,9 +83,11 @@ class Company(Base):
     business_score: Mapped[float | None] = mapped_column(Float)
     transmission_score: Mapped[float | None] = mapped_column(Float)
     complexity_score: Mapped[float | None] = mapped_column(Float)
+    retirement_probability: Mapped[float | None] = mapped_column(Float, index=True)
 
     # CRM pipeline
     pipeline_stage: Mapped[str | None] = mapped_column(String(50), index=True)
+    pipeline_moved_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     # Pipeline state timestamps
     director_enriched_at: Mapped[datetime | None] = mapped_column(DateTime)

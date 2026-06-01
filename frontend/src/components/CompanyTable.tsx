@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import type { Company } from "@/types/company";
 import { PIPELINE_STAGES } from "@/types/company";
 
@@ -126,7 +127,9 @@ export default function CompanyTable({
               <tr key={c.siren} className="hover:bg-blue-50 transition-colors">
                 <td className="px-4 py-3">
                   <div className="font-medium text-gray-900 truncate max-w-[200px]">
-                    {c.name ?? c.siren}
+                    <Link href={`/companies/${c.siren}`} className="hover:text-blue-600 transition-colors">
+                      {c.name ?? c.siren}
+                    </Link>
                   </div>
                   <div className="text-xs text-gray-400">{c.siren}</div>
                   {c.website && (

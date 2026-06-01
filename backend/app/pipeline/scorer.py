@@ -33,8 +33,36 @@ _PHYSICAL_B2B_PREFIXES = (
 _REGULATED_PREFIXES = ("64", "65", "66", "69", "70", "71", "75", "86", "87", "88")
 
 
-def compute_score(company: Company) -> tuple[float, float, float, float, float]:
-    """Return (total, digital, business, transmission, complexity)."""
+def compute_retirement_probability(company: Company) -> float:
+    score = 0.0
+    if company.creation_date:
+        from datetime import date as _date
+        if company.creation_date.year < 2000:
+            score += 25
+    if company.director_age is not None and company.director_age >= 60:
+        score += 20
+    elif company.director_age is not None and company.director_age >= 55:
+        score += 12
+    if company.director_appointment_date:
+        years = (_TODAY - company.director_appointment_date).days // 365
+        if years >= 20:
+            score += 20
+        elif years >= 15:
+            score += 12
+    age = company.company_age_years or 0
+    if age >= 25:
+        score += 15
+    elif age >= 20:
+        score += 8
+    if not company.website:
+        score += 10  # pas de site = peu de dynamisme
+    if company.director_count == 1 and not company.has_holding:
+        score += 10  # structure fragile à la cession
+    return min(score, 100.0)
+
+
+def compute_score(company: Company) -> tuple[float, float, float, float, float, float]:
+    """Return (total, digital, business, transmission, complexity, retirement_probability)."""
 
     # ── POTENTIEL DIGITAL (0–40 pts) ─────────────────────────────────────────
     digital = 0.0
@@ -113,7 +141,8 @@ def compute_score(company: Company) -> tuple[float, float, float, float, float]:
     complexity = min(complexity, 10.0)
 
     total = min(digital + business + transmission + complexity, 100.0)
-    return total, digital, business, transmission, complexity
+    retirement = compute_retirement_probability(company)
+    return total, digital, business, transmission, complexity, retirement
 
 
 def score_companies(batch_size: int = 5000) -> None:
@@ -132,12 +161,13 @@ def score_companies(batch_size: int = 5000) -> None:
         now = datetime.now(timezone.utc).replace(tzinfo=None)
 
         for company in tqdm(companies):
-            total, dig, biz, trans, cpx = compute_score(company)
+            total, dig, biz, trans, cpx, ret = compute_score(company)
             company.cession_score = total
             company.digital_score = dig
             company.business_score = biz
             company.transmission_score = trans
             company.complexity_score = cpx
+            company.retirement_probability = ret
             company.scored_at = now
 
         db.commit()

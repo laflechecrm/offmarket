@@ -1,5 +1,5 @@
 """
-Generate activity summaries and sector classification via Claude API.
+Generate activity summaries, sector classification, and digital opportunity analysis via Claude API.
 
 Usage:
     python -m app.pipeline.summarizer [--batch N]
@@ -19,44 +19,53 @@ from app.config import settings
 from app.database import SessionLocal, init_db
 from app.models import Company
 
-SYSTEM_PROMPT = """Tu es un expert en analyse d'entreprises B2B françaises.
-À partir du texte d'un site web d'entreprise, tu génères :
-1. Un résumé en UNE phrase courte et précise de l'activité réelle (ex: "Fabricant de protections pour rayonnage logistique", "Distributeur de pièces détachées industrielles pour l'agroalimentaire")
-2. Un secteur réel en 3-5 mots (ex: "Équipements industriels B2B", "Négoce technique BTP", "Automatisation process manufacturing")
+SYSTEM_PROMPT = """Tu es un analyste M&A expert en reprise de PME françaises et en transformation digitale.
+À partir du texte d'un site web d'entreprise, tu génères une analyse structurée.
+Réponds UNIQUEMENT en JSON valide. Pas d'explication, pas de markdown."""
 
-Réponds UNIQUEMENT en JSON avec les clés "summary" et "sector". Pas d'explication."""
-
-USER_TEMPLATE = """Nom entreprise: {name}
+USER_TEMPLATE = """Entreprise: {name}
 Code NAF: {naf}
+Effectifs: {employees}
+Ancienneté: {age} ans
 Texte du site web:
 {text}
 
-Génère le JSON de résumé d'activité."""
+Réponds avec ce JSON exact:
+{{
+  "summary": "UNE phrase décrivant l'activité réelle (ex: Fabricant de protections pour rayonnage logistique)",
+  "sector": "3-5 mots (ex: Équipements industriels B2B)",
+  "digital_opportunity": "2-4 phrases sur les gaps digitaux et le potentiel. Cite les signaux concrets détectés (site ancien, pas de CRM, catalogue PDF, commande par fax...). Termine par une estimation de croissance potentielle (+X% à +Y% de CA).",
+  "risks": "1-3 phrases sur les risques principaux (dépendance dirigeant, secteur, réglementation, clientèle concentrée...)",
+  "growth_levers": "1-3 phrases sur les 2-3 leviers de croissance prioritaires post-acquisition"
+}}"""
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=15))
-def _call_claude(client: anthropic.Anthropic, name: str, naf: str, text: str) -> dict:
+def _call_claude(client: anthropic.Anthropic, company: Company) -> dict:
+    emp = f"{company.employee_min or 0}–{company.employee_max or '?'}" if company.employee_min is not None else "N/A"
     message = client.messages.create(
         model=settings.llm_model,
-        max_tokens=200,
+        max_tokens=600,
         system=SYSTEM_PROMPT,
         messages=[
             {
                 "role": "user",
                 "content": USER_TEMPLATE.format(
-                    name=name or "Inconnue",
-                    naf=naf or "N/A",
-                    text=text[:3000],
+                    name=company.name or "Inconnue",
+                    naf=company.naf_code or "N/A",
+                    employees=emp,
+                    age=company.company_age_years or "N/A",
+                    text=(company.homepage_text or "")[:4000],
                 ),
             }
         ],
     )
     raw = message.content[0].text.strip()
-    # Strip markdown code fences if present
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
             raw = raw[4:]
+        raw = raw.rsplit("```", 1)[0]
     return json.loads(raw)
 
 
@@ -81,21 +90,18 @@ def summarize_companies(batch_size: int = 100) -> None:
 
         for company in tqdm(companies):
             try:
-                result = _call_claude(
-                    client,
-                    company.name or "",
-                    company.naf_code or "",
-                    company.homepage_text or "",
-                )
-                company.activity_summary = result.get("summary", "")[:500]
-                company.real_sector = result.get("sector", "")[:300]
+                result = _call_claude(client, company)
+                company.activity_summary = (result.get("summary") or "")[:500]
+                company.real_sector = (result.get("sector") or "")[:300]
+                company.digital_opportunity_summary = result.get("digital_opportunity") or None
+                company.risks_summary = result.get("risks") or None
+                company.growth_potential_summary = result.get("growth_levers") or None
             except Exception as e:
                 print(f"  Error {company.siren}: {e}")
 
-            now = datetime.now(timezone.utc).replace(tzinfo=None)
-            company.summarized_at = now
+            company.summarized_at = datetime.now(timezone.utc).replace(tzinfo=None)
             db.commit()
-            time.sleep(0.1)  # gentle rate limit
+            time.sleep(0.15)
 
     finally:
         db.close()
