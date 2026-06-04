@@ -171,14 +171,14 @@ export default function CompanyCard({ company: initial, onToggleFavorite, onEnri
             </Button>
           )}
           <Select
-            value={currentStage ?? ""}
-            onValueChange={(v) => onStageChange(company.siren, v as CrmStage || null)}
+            value={currentStage ?? "__none__"}
+            onValueChange={(v) => onStageChange(company.siren, v === "__none__" ? null : v as CrmStage)}
           >
             <SelectTrigger className="h-7 text-xs flex-1 max-w-[150px]" onClick={(e) => e.stopPropagation()}>
               <SelectValue placeholder="Pipeline…" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">— Aucun —</SelectItem>
+              <SelectItem value="__none__">— Aucun —</SelectItem>
               {CRM_STAGES.map((s) => (
                 <SelectItem key={s} value={s}>
                   <span className={cn("px-1.5 py-0.5 rounded text-xs", CRM_STAGE_COLORS[s])}>{s}</span>

@@ -86,12 +86,13 @@ export default function SearchFilters({ filters, onChange, onSearch, onSave, loa
       <div className="space-y-1.5">
         <Label>Région</Label>
         <Select
-          value={filters.region_code ?? ""}
+          value={filters.region_code ?? "__none__"}
           onValueChange={(v) => {
-            const region = FRENCH_REGIONS.find((r) => r.code === v);
+            const code = v === "__none__" ? undefined : v;
+            const region = FRENCH_REGIONS.find((r) => r.code === code);
             onChange({
               ...filters,
-              region_code: v || undefined,
+              region_code: code,
               department: region ? undefined : filters.department,
             });
           }}
@@ -100,7 +101,7 @@ export default function SearchFilters({ filters, onChange, onSearch, onSave, loa
             <SelectValue placeholder="Toutes les régions" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Toutes les régions</SelectItem>
+            <SelectItem value="__none__">Toutes les régions</SelectItem>
             {FRENCH_REGIONS.map((r) => (
               <SelectItem key={r.code} value={r.code}>
                 {r.label}
