@@ -10,5 +10,11 @@
   package = "@netlify/plugin-nextjs"
 
 # Variables d'environnement à configurer dans Netlify Dashboard :
-# DATABASE_URL      → connexion Neon (postgresql://...@...neon.tech/offmarket?sslmode=require)
-# ANTHROPIC_API_KEY → Claude API
+# NEXT_PUBLIC_SUPABASE_URL      → URL du projet Supabase
+# NEXT_PUBLIC_SUPABASE_ANON_KEY → Clé publique Supabase (anon)
+# SUPABASE_SERVICE_KEY          → Clé service Supabase (privée, côté serveur uniquement)
+# ANTHROPIC_API_KEY             → Clé API Claude (Anthropic)
+# PAPPERS_API_KEY               → Clé API Pappers (dirigeants)
+# SIRENE_TOKEN                  → Token Bearer INSEE SIRENE V3.11 (direct)
+# SIRENE_CONSUMER_KEY           → Ou : clé consommateur INSEE (pour auto-refresh OAuth2)
+# SIRENE_CONSUMER_SECRET        → Ou : secret consommateur INSEE

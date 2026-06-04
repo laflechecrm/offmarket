@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Nav from "@/components/Nav";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
-  title: "Acquisition Finder",
-  description: "CRM de sourcing de reprises d'entreprises B2B en France",
+  title: "Off Market Reprise",
+  description: "Sourcing et acquisition d'entreprises B2B off-market en France",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body className="bg-gray-50 min-h-screen">
+      <body className="min-h-screen bg-background">
         <Nav />
-        <div className="pt-14">{children}</div>
+        <main>{children}</main>
+        <Toaster richColors position="bottom-right" />
       </body>
     </html>
   );

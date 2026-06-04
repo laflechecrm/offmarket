@@ -2,38 +2,42 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Search, Star, Columns, Bookmark, Settings, TrendingUp } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const links = [
-  { href: "/", label: "Entreprises" },
-  { href: "/pipeline", label: "Pipeline" },
-  { href: "/dashboard", label: "Dashboard" },
+  { href: "/search", label: "Recherche", icon: Search },
+  { href: "/favorites", label: "Favoris", icon: Star },
+  { href: "/pipeline", label: "Pipeline", icon: Columns },
+  { href: "/saved", label: "Sauvegardées", icon: Bookmark },
+  { href: "/settings", label: "Paramètres", icon: Settings },
 ];
 
 export default function Nav() {
-  const path = usePathname();
+  const pathname = usePathname();
   return (
-    <header className="fixed top-0 inset-x-0 z-40 bg-white border-b border-gray-200 h-14 flex items-center px-6">
-      <div className="flex items-center gap-8 w-full max-w-screen-2xl mx-auto">
-        <span className="font-bold text-gray-900 text-sm tracking-tight">
-          Acquisition Finder
-        </span>
-        <nav className="flex gap-1">
-          {links.map(({ href, label }) => {
-            const active = href === "/" ? path === "/" : path.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  active
-                    ? "bg-gray-100 text-gray-900"
-                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                }`}
-              >
-                {label}
-              </Link>
-            );
-          })}
+    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="max-w-screen-2xl mx-auto flex h-14 items-center gap-6 px-6">
+        <Link href="/search" className="flex items-center gap-2 font-semibold text-foreground shrink-0">
+          <TrendingUp className="h-5 w-5 text-primary" />
+          <span>Off Market Reprise</span>
+        </Link>
+        <nav className="flex items-center gap-1">
+          {links.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors",
+                pathname === href || pathname.startsWith(href + "/")
+                  ? "bg-accent text-accent-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </Link>
+          ))}
         </nav>
       </div>
     </header>

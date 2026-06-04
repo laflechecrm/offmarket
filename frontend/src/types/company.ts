@@ -1,166 +1,120 @@
-export interface Company {
-  id: number;
+export interface SireneCompany {
   siren: string;
-  name: string | null;
-  naf_code: string | null;
-  naf_label: string | null;
-  employee_min: number | null;
-  employee_max: number | null;
-  creation_date: string | null;
-  company_age_years: number | null;
-  city: string | null;
-  postal_code: string | null;
-  department: string | null;
-  region: string | null;
-  legal_form: string | null;
-  phone: string | null;
-  email: string | null;
-  linkedin_url: string | null;
-  revenue_min: number | null;
-  revenue_max: number | null;
-  source: string | null;
-  source_url: string | null;
-  director_name: string | null;
-  director_age: number | null;
-  director_birth_year: number | null;
-  director_count: number | null;
-  has_holding: boolean;
-  website: string | null;
-  activity_summary: string | null;
-  real_sector: string | null;
-  digital_opportunity_summary: string | null;
-  risks_summary: string | null;
-  growth_potential_summary: string | null;
-  cession_score: number | null;
-  digital_score: number | null;
-  business_score: number | null;
-  transmission_score: number | null;
-  complexity_score: number | null;
-  retirement_probability: number | null;
-  pipeline_stage: string | null;
-  pipeline_moved_at: string | null;
-  created_at: string;
-  director_enriched_at: string | null;
-  summarized_at: string | null;
-  scored_at: string | null;
+  siret?: string;
+  name: string;
+  naf: string;
+  naf_label?: string;
+  city?: string;
+  department?: string;
+  region_code?: string;
+  postal_code?: string;
+  employee_tranche?: string;
+  creation_date?: string;
+  legal_form_code?: string;
+  // Enriched from Pappers
+  dirigeant?: Dirigeant;
+  // Enriched from AI
+  enrichment?: Enrichment;
+  // CRM
+  crm_stage?: CrmStage;
+  // Favorites
+  is_favorite?: boolean;
 }
 
-export interface CompanyList {
-  items: Company[];
-  total: number;
-  page: number;
-  page_size: number;
+export interface Dirigeant {
+  nom: string;
+  prenom?: string;
+  age?: number;
+  qualite?: string;
 }
 
-export interface SimilarResult {
-  company: Company;
-  similarity: number;
+export interface Enrichment {
+  activity_summary: string;
+  sector: string;
+  digital_score: number;
+  business_score: number;
+  transmission_score: number;
+  complexity_score: number;
+  cession_score: number;
+  digital_opportunity?: string;
+  risks?: string;
+  growth_levers?: string;
+  enriched_at: string;
 }
 
-export interface PipelineStatus {
-  total: number;
-  director_enriched: number;
-  website_found: number;
-  scraped: number;
-  summarized: number;
-  embedded: number;
-  scored: number;
-}
-
-export interface Activity {
-  id: string;
-  company_id: number;
-  type: ActivityType;
-  direction: "outbound" | "inbound" | null;
-  date: string;
-  subject: string | null;
-  content: string | null;
-  outcome: string | null;
-  next_action: string | null;
-  created_at: string;
-}
-
-export type ActivityType = "call" | "email" | "linkedin" | "meeting" | "note" | "whatsapp";
-
-export interface Task {
-  id: string;
-  company_id: number;
-  type: string | null;
-  title: string;
-  description: string | null;
-  due_date: string | null;
-  priority: "low" | "medium" | "high" | "urgent";
-  completed_at: string | null;
-  created_at: string;
-}
-
-export const PIPELINE_STAGES = [
-  "Prospects",
-  "Pré-qualifiés",
-  "À contacter",
-  "Contact établi",
-  "Discussion ouverte",
-  "NDA signé",
-  "Analyse financière",
-  "LOI",
+export const CRM_STAGES = [
+  "Prospect",
+  "Contacté",
+  "En discussion",
   "Due diligence",
-  "Offre finale",
-  "Acquis",
-  "Perdu",
+  "Offre",
+  "Signé",
 ] as const;
+export type CrmStage = (typeof CRM_STAGES)[number];
 
-export type PipelineStage = (typeof PIPELINE_STAGES)[number];
-
-export const PIPELINE_STAGE_COLORS: Record<string, string> = {
-  "Prospects": "bg-gray-100 border-gray-200",
-  "Pré-qualifiés": "bg-blue-50 border-blue-200",
-  "À contacter": "bg-indigo-50 border-indigo-200",
-  "Contact établi": "bg-violet-50 border-violet-200",
-  "Discussion ouverte": "bg-purple-50 border-purple-200",
-  "NDA signé": "bg-amber-50 border-amber-200",
-  "Analyse financière": "bg-orange-50 border-orange-200",
-  "LOI": "bg-red-50 border-red-200",
-  "Due diligence": "bg-rose-50 border-rose-200",
-  "Offre finale": "bg-pink-50 border-pink-200",
-  "Acquis": "bg-green-50 border-green-200",
-  "Perdu": "bg-slate-100 border-slate-200",
+export const CRM_STAGE_COLORS: Record<CrmStage, string> = {
+  Prospect: "bg-gray-100 text-gray-700",
+  Contacté: "bg-blue-100 text-blue-700",
+  "En discussion": "bg-yellow-100 text-yellow-700",
+  "Due diligence": "bg-orange-100 text-orange-700",
+  Offre: "bg-purple-100 text-purple-700",
+  Signé: "bg-green-100 text-green-700",
 };
 
-export const FRENCH_REGIONS = [
-  "Auvergne-Rhône-Alpes",
-  "Bourgogne-Franche-Comté",
-  "Bretagne",
-  "Centre-Val de Loire",
-  "Corse",
-  "Grand Est",
-  "Guadeloupe",
-  "Guyane",
-  "Hauts-de-France",
-  "Île-de-France",
-  "La Réunion",
-  "Martinique",
-  "Mayotte",
-  "Normandie",
-  "Nouvelle-Aquitaine",
-  "Occitanie",
-  "Pays de la Loire",
-  "Provence-Alpes-Côte d'Azur",
-] as const;
-
-export interface Filters {
-  region: string;
-  director_age_min: string;
-  director_age_max: string;
-  employee_min: string;
-  employee_max: string;
-  cession_score_min: string;
-  keyword: string;
-  has_website: boolean;
-  has_summary: boolean;
-  crit_digital_gap: boolean;
-  crit_physical_b2b: boolean;
-  crit_retiring: boolean;
-  crit_small: boolean;
-  crit_no_holding: boolean;
-  pipeline_stage: string;
+export interface CrmCard {
+  id?: string;
+  siren: string;
+  company_data: SireneCompany;
+  stage: CrmStage;
+  notes?: string;
+  moved_at?: string;
 }
+
+export interface SavedSearch {
+  id: string;
+  name: string;
+  filters: SearchFilters;
+  created_at: string;
+}
+
+export interface SearchFilters {
+  naf?: string;
+  department?: string;
+  region_code?: string;
+  employee_tranches?: string[];
+  keyword?: string;
+  crit_no_website?: boolean;
+  crit_b2b_physical?: boolean;
+  crit_retiring?: boolean;
+  crit_small?: boolean;
+}
+
+export const EMPLOYEE_TRANCHES: Record<string, string> = {
+  "NN": "Non déclaré",
+  "00": "0 salarié",
+  "01": "1–2",
+  "02": "3–5",
+  "03": "6–9",
+  "11": "10–19",
+  "12": "20–49",
+  "21": "50–99",
+  "22": "100–199",
+  "31": "200–249",
+  "32": "250–499",
+};
+
+export const FRENCH_REGIONS: { code: string; label: string; departments: string[] }[] = [
+  { code: "84", label: "Auvergne-Rhône-Alpes", departments: ["01","03","07","15","26","38","42","43","63","69","73","74"] },
+  { code: "27", label: "Bourgogne-Franche-Comté", departments: ["21","25","39","58","70","71","89","90"] },
+  { code: "53", label: "Bretagne", departments: ["22","29","35","56"] },
+  { code: "24", label: "Centre-Val de Loire", departments: ["18","28","36","37","41","45"] },
+  { code: "94", label: "Corse", departments: ["2A","2B"] },
+  { code: "44", label: "Grand Est", departments: ["08","10","51","52","54","55","57","67","68","88"] },
+  { code: "32", label: "Hauts-de-France", departments: ["02","59","60","62","80"] },
+  { code: "11", label: "Île-de-France", departments: ["75","77","78","91","92","93","94","95"] },
+  { code: "28", label: "Normandie", departments: ["14","27","50","61","76"] },
+  { code: "75", label: "Nouvelle-Aquitaine", departments: ["16","17","19","23","24","33","40","47","64","79","86","87"] },
+  { code: "76", label: "Occitanie", departments: ["09","11","12","30","31","32","34","46","48","65","66","81","82"] },
+  { code: "52", label: "Pays de la Loire", departments: ["44","49","53","72","85"] },
+  { code: "93", label: "Provence-Alpes-Côte d'Azur", departments: ["04","05","06","13","83","84"] },
+];
